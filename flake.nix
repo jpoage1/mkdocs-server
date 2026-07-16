@@ -13,7 +13,7 @@
   }:
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {inherit system;};
-      docs-server = pkgs.callPackage ./package.nix {};
+      docs-server = pkgs.python3.pkgs.callPackage ./package.nix {};
     in {
       packages = {
         inherit docs-server;
