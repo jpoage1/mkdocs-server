@@ -5,56 +5,50 @@ from typing import Any, Dict, List
 from unittest.mock import patch
 import pytest
 
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-# Attempt to import tools and server; if not yet implemented, running pytest will fail cleanly (Red phase of TDD)
-try:
-    from mcp_server import (
-        is_allowed_path,
-        list_documentation_files,
-        search_documentation,
-        read_document,
-        create_document,
-        edit_document,
-        replace_in_document,
-        mcp,
-    )
-except ImportError:
-    pass
+from docs_server.mcp_server import (
+    is_allowed_path,
+    list_documentation_files,
+    search_documentation,
+    read_document,
+    create_document,
+    edit_document,
+    replace_in_document,
+    mcp,
+)
 
 
+@patch("docs_server.mcp_server.scanner.ALLOWED_ROOTS", ["/tmp/test_projects"])
 def test_is_allowed_path_validates_security(tmp_path: Path) -> None:
     """@brief Verify that only valid markdown files within authorized search paths are allowed.
     @param tmp_path Pytest temporary directory fixture.
     """
-    valid_file = Path("/srv/projects/cheatsheet/test.md")
+    valid_file = Path("/tmp/test_projects/cheatsheet/test.md")
     assert is_allowed_path(valid_file) is True
 
-    # Path outside /srv/projects
+    # Path outside allowed roots
     unauthorized = Path("/etc/passwd")
     assert is_allowed_path(unauthorized) is False
 
     # Excluded directory (e.g., node_modules)
-    excluded = Path("/srv/projects/finance.lan/api/node_modules/package.md")
+    excluded = Path("/tmp/test_projects/finance.lan/api/node_modules/package.md")
     assert is_allowed_path(excluded) is False
 
     # Non-markdown file
-    py_file = Path("/srv/projects/cheatsheet/script.py")
+    py_file = Path("/tmp/test_projects/cheatsheet/script.py")
     assert is_allowed_path(py_file) is False
 
 
-@patch("mcp_server.scanner.get_documentation_files")
+@patch("docs_server.mcp_server.scanner.get_documentation_files")
 def test_list_documentation_files(mock_get_files: Any) -> None:
     """@brief Verify that list_documentation_files returns string paths from scanner.
     @param mock_get_files Mocked scanner function.
     """
-    mock_get_files.return_value = [Path("/srv/projects/cheatsheet/ripgrep.md")]
+    mock_get_files.return_value = [Path("/test/workspace/project-a/docs/guide.md")]
     results = list_documentation_files()
-    assert results == ["/srv/projects/cheatsheet/ripgrep.md"]
+    assert results == ["/test/workspace/project-a/docs/guide.md"]
 
 
-@patch("mcp_server.scanner.get_documentation_files")
+@patch("docs_server.mcp_server.scanner.get_documentation_files")
 def test_search_documentation(mock_get_files: Any, tmp_path: Path) -> None:
     """@brief Verify that search_documentation finds query snippets across files.
     @param mock_get_files Mocked scanner function.
@@ -64,14 +58,16 @@ def test_search_documentation(mock_get_files: Any, tmp_path: Path) -> None:
     doc_file.write_text("# Guide\nHello MCP world\nSecond line")
     mock_get_files.return_value = [doc_file]
 
-    results: List[Dict[str, Any]] = search_documentation(query="MCP world", case_insensitive=True)
+    results: List[Dict[str, Any]] = search_documentation(
+        query="MCP world", case_insensitive=True
+    )
     assert len(results) == 1
     assert results[0]["file_path"] == str(doc_file)
     assert results[0]["line_number"] == 2
     assert "Hello MCP world" in results[0]["content"]
 
 
-@patch("mcp_server.is_allowed_path", return_value=True)
+@patch("docs_server.mcp_server.is_allowed_path", return_value=True)
 def test_read_document(mock_allowed: Any, tmp_path: Path) -> None:
     """@brief Verify that read_document returns full markdown content.
     @param mock_allowed Mocked security validation function.
@@ -84,7 +80,7 @@ def test_read_document(mock_allowed: Any, tmp_path: Path) -> None:
     assert content == "# Read Me Content"
 
 
-@patch("mcp_server.is_allowed_path", return_value=True)
+@patch("docs_server.mcp_server.is_allowed_path", return_value=True)
 def test_create_document(mock_allowed: Any, tmp_path: Path) -> None:
     """@brief Verify that create_document writes new file and creates parent directories if needed.
     @param mock_allowed Mocked security validation function.
@@ -97,8 +93,10 @@ def test_create_document(mock_allowed: Any, tmp_path: Path) -> None:
     assert new_doc.read_text() == "# New Document"
 
 
-@patch("mcp_server.is_allowed_path", return_value=True)
-def test_create_document_prevents_unintended_overwrite(mock_allowed: Any, tmp_path: Path) -> None:
+@patch("docs_server.mcp_server.is_allowed_path", return_value=True)
+def test_create_document_prevents_unintended_overwrite(
+    mock_allowed: Any, tmp_path: Path
+) -> None:
     """@brief Verify that create_document raises error if file exists and overwrite=False.
     @param mock_allowed Mocked security validation function.
     @param tmp_path Pytest temporary directory fixture.
@@ -110,7 +108,7 @@ def test_create_document_prevents_unintended_overwrite(mock_allowed: Any, tmp_pa
         create_document(str(existing_doc), "# New", overwrite=False)
 
 
-@patch("mcp_server.is_allowed_path", return_value=True)
+@patch("docs_server.mcp_server.is_allowed_path", return_value=True)
 def test_edit_document(mock_allowed: Any, tmp_path: Path) -> None:
     """@brief Verify that edit_document replaces content of an existing file.
     @param mock_allowed Mocked security validation function.
@@ -124,7 +122,7 @@ def test_edit_document(mock_allowed: Any, tmp_path: Path) -> None:
     assert doc_file.read_text() == "# Updated Content"
 
 
-@patch("mcp_server.is_allowed_path", return_value=True)
+@patch("docs_server.mcp_server.is_allowed_path", return_value=True)
 def test_replace_in_document(mock_allowed: Any, tmp_path: Path) -> None:
     """@brief Verify that replace_in_document performs exact substring replacement.
     @param mock_allowed Mocked security validation function.
@@ -133,7 +131,9 @@ def test_replace_in_document(mock_allowed: Any, tmp_path: Path) -> None:
     doc_file = tmp_path / "replace.md"
     doc_file.write_text("# Header\nfoo bar baz\n# Footer")
 
-    result = replace_in_document(str(doc_file), target_content="foo bar baz", replacement_content="hello world")
+    result = replace_in_document(
+        str(doc_file), target_content="foo bar baz", replacement_content="hello world"
+    )
     assert result == f"Successfully replaced content inside document at: {doc_file}"
     assert doc_file.read_text() == "# Header\nhello world\n# Footer"
 

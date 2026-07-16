@@ -1,8 +1,9 @@
 [project]
 name = "workspace-docs-portal"
 version = "0.1.0"
-description = "Centralized Python MkDocs documentation portal and discovery scanner for /srv/projects"
+description = "Configurable Python documentation server with MkDocs and FastMCP for AI agent access"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "mcp>=1.2.0",
@@ -17,9 +18,9 @@ dev = [
 ]
 
 [project.scripts]
-docs-scanner = "scanner:main"
-docs-mcp-server = "mcp_server:main"
+docs-scanner = "docs_server.scanner:main"
+docs-mcp-server = "docs_server.mcp_server:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = ["src"]

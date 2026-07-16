@@ -1,0 +1,20 @@
+# docs-server configuration
+# Search paths for documentation discovery.
+# Can also be overridden via DOCS_SERVER_SEARCH_PATHS env var (colon-separated).
+
+[scanner]
+search_paths = [
+    # "/path/to/your/project/docs",
+    # "/path/to/another/workspace",
+]
+
+# Root directories the server is allowed to read/write.
+# Defaults to search_paths if omitted.
+allowed_roots = [
+    # "/path/to/your/project",
+]
+
+# Base directory for MkDocs virtual file mounting.
+# Files are mounted relative to this path.
+# Defaults to the parent of the first search_path if omitted.
+# source_dir = "/path/to/your/workspace"

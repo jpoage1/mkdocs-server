@@ -1,18 +1,15 @@
 """@brief Native MkDocs lifecycle hook for virtual documentation discovery and mounting.
 
-Dynamically scans `/srv/projects/` during `mkdocs serve` or `mkdocs build` and mounts discovered
-files as virtual File entries without creating symlinks or copying files.
+Dynamically scans configured search roots during `mkdocs serve` or `mkdocs build` and mounts
+discovered files as virtual File entries without creating symlinks or copying files.
 """
 
-import sys
 from pathlib import Path
 from typing import Any, Dict
 from mkdocs.structure.files import File, Files
 from mkdocs.structure.nav import Navigation
 
-# Ensure parent root directory (/srv/projects/docs) is on sys.path for scanner module import
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import scanner
+from docs_server import scanner
 
 
 def is_already_in_files(file_path: Path, files: Files) -> bool:
@@ -22,12 +19,14 @@ def is_already_in_files(file_path: Path, files: Files) -> bool:
     @return True if already present, False otherwise.
     """
     try:
-        rel_str = str(file_path.relative_to("/srv/projects"))
+        rel_str = str(file_path.relative_to(scanner.SOURCE_DIR))
     except ValueError:
         rel_str = file_path.name
 
     for existing_file in files:
-        if existing_file.src_path == rel_str or existing_file.abs_src_path == str(file_path):
+        if existing_file.src_path == rel_str or existing_file.abs_src_path == str(
+            file_path
+        ):
             return True
     return False
 
@@ -39,13 +38,13 @@ def inject_virtual_file(file_path: Path, files: Files, config: Dict[str, Any]) -
     @param config MkDocs configuration dictionary containing site_dir and URL settings.
     """
     try:
-        rel_path = file_path.relative_to("/srv/projects")
+        rel_path = file_path.relative_to(scanner.SOURCE_DIR)
     except ValueError:
         rel_path = Path(file_path.name)
 
     virtual_file = File(
         path=str(rel_path),
-        src_dir="/srv/projects",
+        src_dir=scanner.SOURCE_DIR,
         dest_dir=config.get("site_dir", ""),
         use_directory_urls=config.get("use_directory_urls", True),
     )

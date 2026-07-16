@@ -3,9 +3,7 @@
 from pathlib import Path
 import pytest
 
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from scanner import get_documentation_files, EXCLUDE_DIRS, SEARCH_PATHS
+from docs_server.scanner import get_documentation_files, EXCLUDE_DIRS, SEARCH_PATHS
 
 
 def test_get_documentation_files_skips_missing_dirs(tmp_path: Path) -> None:
@@ -17,7 +15,9 @@ def test_get_documentation_files_skips_missing_dirs(tmp_path: Path) -> None:
     existing_dir.mkdir()
     (existing_dir / "test.md").write_text("# Test")
 
-    results = get_documentation_files(search_paths=[str(missing_dir), str(existing_dir)])
+    results = get_documentation_files(
+        search_paths=[str(missing_dir), str(existing_dir)]
+    )
     assert results == [existing_dir / "test.md"]
 
 
@@ -84,9 +84,23 @@ def test_get_documentation_files_includes_boilerplate(tmp_path: Path) -> None:
 def test_exclude_dirs_matches_docs_sh_behavior() -> None:
     """@brief Verify that EXCLUDE_DIRS contains all directory exclusion rules modeled from docs.sh."""
     expected = {
-        "node_modules", ".git", "dist", "build", "target", "vendor",
-        "coverage", ".next", ".svelte-kit", ".cache", ".venv",
-        ".pytest_cache", "content", ".terragrunt-cache", ".terraform",
-        "www", "test-results", "data"
+        "node_modules",
+        ".git",
+        "dist",
+        "build",
+        "target",
+        "vendor",
+        "coverage",
+        ".next",
+        ".svelte-kit",
+        ".cache",
+        ".venv",
+        ".pytest_cache",
+        "content",
+        ".terragrunt-cache",
+        ".terraform",
+        "www",
+        "test-results",
+        "data",
     }
     assert EXCLUDE_DIRS == expected

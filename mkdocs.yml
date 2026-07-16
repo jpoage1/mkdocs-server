@@ -33,4 +33,4 @@ markdown_extensions:
 plugins:
   - search
 hooks:
-  - hooks/discover_docs.py
+  - docs_server.hooks.discover_docs

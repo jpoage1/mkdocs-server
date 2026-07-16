@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from mcp.server.fastmcp import FastMCP
 
-import scanner
+from docs_server import scanner
 
 mcp = FastMCP("Workspace Documentation Portal")
 
@@ -23,7 +23,7 @@ def has_excluded_directory(path_obj: Path) -> bool:
 def is_allowed_path(path_obj: Path) -> bool:
     """@brief Validate if a path is an authorized markdown documentation file location.
     @param path_obj Candidate Path to check.
-    @return True if path is secure and within authorized search roots, False otherwise.
+    @return True if path is secure and within authorized roots, False otherwise.
     """
     if not scanner.is_valid_doc_file(path_obj):
         return False
@@ -31,10 +31,8 @@ def is_allowed_path(path_obj: Path) -> bool:
         return False
 
     abs_str = str(path_obj.resolve() if path_obj.exists() else path_obj)
-    if abs_str.startswith("/srv/projects/docs"):
-        return True
 
-    for root in scanner.SEARCH_PATHS:
+    for root in scanner.ALLOWED_ROOTS:
         if abs_str.startswith(root):
             return True
     return False
@@ -48,13 +46,17 @@ def validate_path_security(file_path_str: str, require_exists: bool = False) -> 
     """
     path_obj = Path(file_path_str)
     if not is_allowed_path(path_obj):
-        raise PermissionError(f"Unauthorized path or invalid markdown documentation file: {file_path_str}")
+        raise PermissionError(
+            f"Unauthorized path or invalid markdown documentation file: {file_path_str}"
+        )
     if require_exists and not path_obj.exists():
         raise FileNotFoundError(f"Documentation file not found: {file_path_str}")
     return path_obj
 
 
-def search_single_file(file_path: Path, query: str, case_insensitive: bool) -> List[Dict[str, Any]]:
+def search_single_file(
+    file_path: Path, query: str, case_insensitive: bool
+) -> List[Dict[str, Any]]:
     """@brief Search for a text query inside a single markdown documentation file.
     @param file_path Path object of the file to search.
     @param query Text string to search for.
@@ -71,11 +73,13 @@ def search_single_file(file_path: Path, query: str, case_insensitive: bool) -> L
     for line_num, line in enumerate(lines, start=1):
         target_line = line.lower() if case_insensitive else line
         if target_query in target_line:
-            matches.append({
-                "file_path": str(file_path),
-                "line_number": line_num,
-                "content": line.strip(),
-            })
+            matches.append(
+                {
+                    "file_path": str(file_path),
+                    "line_number": line_num,
+                    "content": line.strip(),
+                }
+            )
     return matches
 
 
@@ -88,7 +92,9 @@ def list_documentation_files() -> List[str]:
 
 
 @mcp.tool()
-def search_documentation(query: str, case_insensitive: bool = True) -> List[Dict[str, Any]]:
+def search_documentation(
+    query: str, case_insensitive: bool = True
+) -> List[Dict[str, Any]]:
     """@brief Search inside all discovered markdown documentation files for keywords.
     @param query Keyword or phrase to search for.
     @param case_insensitive Whether to perform case-insensitive matching (default True).
@@ -121,7 +127,9 @@ def create_document(file_path: str, content: str, overwrite: bool = False) -> st
     """
     path_obj = validate_path_security(file_path, require_exists=False)
     if path_obj.exists() and not overwrite:
-        raise ValueError(f"Document already exists at {file_path}. Set overwrite=True to overwrite.")
+        raise ValueError(
+            f"Document already exists at {file_path}. Set overwrite=True to overwrite."
+        )
 
     path_obj.parent.mkdir(parents=True, exist_ok=True)
     path_obj.write_text(content)
@@ -141,7 +149,9 @@ def edit_document(file_path: str, content: str) -> str:
 
 
 @mcp.tool()
-def replace_in_document(file_path: str, target_content: str, replacement_content: str) -> str:
+def replace_in_document(
+    file_path: str, target_content: str, replacement_content: str
+) -> str:
     """@brief Perform precise substring replacement inside an existing markdown document.
     @param file_path Absolute path of the markdown file to edit.
     @param target_content Exact text string or block to find and replace.

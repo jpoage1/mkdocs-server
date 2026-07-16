@@ -1,13 +1,20 @@
-"""@brief Dynamic documentation discovery scanner across `/srv/projects/`.
+"""@brief Dynamic documentation discovery scanner.
 
-Models `/srv/projects/docs.sh` search roots and directory exclusion rules while explicitly
-including `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+Scans configured search roots for markdown documentation files (`README.md`,
+`AGENTS.md`, `CHANGELOG.md`, guides, etc.), using exclusion rules modeled
+from `docs.sh` behavior. Search paths are loaded from `docs_server.toml`
+or the `DOCS_SERVER_SEARCH_PATHS` environment variable.
 """
 
 import os
 import sys
 from pathlib import Path
 from typing import List, Optional
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib  # type: ignore[no-redef]
 
 EXCLUDE_DIRS: set[str] = {
     "node_modules",
@@ -35,46 +42,89 @@ EXCLUDE_FILES: set[str] = {
     "README",
 }
 
-SEARCH_PATHS: List[str] = [
-    "/srv/projects/helm_charts",
-    "/srv/projects/jasonpoage.com/expressjs-blog",
-    "/srv/projects/hexascript/src/core",
-    "/srv/projects/hexascript/src/miner",
-    "/srv/projects/hexascript/src/ide",
-    "/srv/projects/hexascript/src/api_server",
-    "/srv/projects/finance.lan/svelte",
-    "/srv/projects/finance.lan/api",
-    "/srv/projects/finance.lan/infrastructure",
-    "/srv/projects/finance.lan/react",
-    "/srv/projects/node_packages",
-    "/srv/projects/python_packages",
-    "/srv/projects/go",
-    "/srv/projects/access_manager",
-    "/srv/projects/auth_redirect",
-    "/srv/projects/auth_server",
-    "/srv/projects/bin-selector",
-    "/srv/projects/budget-analyzer",
-    "/srv/projects/cheatsheet",
-    "/srv/projects/clip",
-    "/srv/projects/config_loader",
-    "/srv/projects/deployment_pipeline",
-    "/srv/projects/docker",
-    "/srv/projects/dwl",
-    "/srv/projects/dwl-patches",
-    "/srv/projects/home-manager",
-    "/srv/projects/i3-workspace-switcher",
-    "/srv/projects/logs",
-    "/srv/projects/mail",
-    "/srv/projects/nixpkgs",
-    "/srv/projects/ollama",
-    "/srv/projects/pipeline_runner",
-    "/srv/projects/resume",
-    "/srv/projects/rootwars",
-    "/srv/projects/Rummy",
-    "/srv/projects/server_healthcheck",
-    "/srv/projects/telemetry",
-    "/srv/projects/workspaces",
-]
+ENV_VAR_NAME = "DOCS_SERVER_SEARCH_PATHS"
+
+
+def find_config_file() -> Optional[Path]:
+    """@brief Locate `docs_server.toml` by walking up from this file's directory.
+    @return Path to config file, or None if not found.
+    """
+    current = Path(__file__).resolve().parent
+    for _ in range(10):
+        candidate = current / "docs_server.toml"
+        if candidate.is_file():
+            return candidate
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+    return None
+
+
+def load_toml_config() -> dict:
+    """@brief Load the full TOML config file.
+    @return Parsed config dictionary, or empty dict if file missing or invalid.
+    """
+    config_path = find_config_file()
+    if config_path is None:
+        return {}
+    try:
+        with open(config_path, "rb") as f:
+            return tomllib.load(f)
+    except Exception:
+        return {}
+
+
+_config_cache: Optional[dict] = None
+
+
+def get_config() -> dict:
+    """@brief Get cached TOML config, loading it on first access.
+    @return Parsed config dictionary.
+    """
+    global _config_cache  # noqa: PLW0603
+    if _config_cache is None:
+        _config_cache = load_toml_config()
+    return _config_cache
+
+
+def load_search_paths() -> List[str]:
+    """@brief Load search paths with priority: env var > TOML file > empty default.
+    @return List of directory path strings to scan for documentation.
+    """
+    raw = os.environ.get(ENV_VAR_NAME, "").strip()
+    if raw:
+        return [p.strip() for p in raw.split(":") if p.strip()]
+    return get_config().get("scanner", {}).get("search_paths", [])
+
+
+def load_allowed_roots() -> List[str]:
+    """@brief Load allowed roots from config, falling back to search_paths.
+    @return List of root directory path strings the server may read/write.
+    """
+    roots = get_config().get("scanner", {}).get("allowed_roots", [])
+    if roots:
+        return roots
+    return load_search_paths()
+
+
+SEARCH_PATHS: List[str] = load_search_paths()
+ALLOWED_ROOTS: List[str] = load_allowed_roots()
+
+
+def load_source_dir() -> str:
+    """@brief Load the MkDocs source directory from config, falling back to first search_path parent.
+    @return Absolute directory path string for MkDocs virtual file mounting.
+    """
+    explicit = get_config().get("scanner", {}).get("source_dir")
+    if explicit:
+        return explicit
+    if SEARCH_PATHS:
+        return str(Path(SEARCH_PATHS[0]).parent)
+    return str(Path.cwd())
+
+
+SOURCE_DIR: str = load_source_dir()
 
 
 def is_excluded_directory(dir_name: str) -> bool:
