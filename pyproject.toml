@@ -1,0 +1,25 @@
+[project]
+name = "workspace-docs-portal"
+version = "0.1.0"
+description = "Centralized Python MkDocs documentation portal and discovery scanner for /srv/projects"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=1.2.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "pymdown-extensions>=10.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+docs-scanner = "scanner:main"
+docs-mcp-server = "mcp_server:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
