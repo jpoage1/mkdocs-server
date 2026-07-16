@@ -3,7 +3,7 @@
 from pathlib import Path
 import pytest
 
-from docs_server.scanner import get_documentation_files, EXCLUDE_DIRS, SEARCH_PATHS
+from docs_server.scanner import get_documentation_files, EXCLUDE_DIRS
 
 
 def test_get_documentation_files_skips_missing_dirs(tmp_path: Path) -> None:

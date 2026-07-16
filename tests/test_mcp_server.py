@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Any, Dict, List
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import pytest
 
 from docs_server.mcp_server import (
@@ -15,13 +15,26 @@ from docs_server.mcp_server import (
     replace_in_document,
     mcp,
 )
+from docs_server.config import ScannerConfig
 
 
-@patch("docs_server.mcp_server.scanner.ALLOWED_ROOTS", ["/tmp/test_projects"])
-def test_is_allowed_path_validates_security(tmp_path: Path) -> None:
+def _make_settings(allowed_roots: list[str] | None = None) -> ScannerConfig:
+    return ScannerConfig(
+        search_paths=[],
+        allowed_roots=allowed_roots or [],
+        source_dir="/tmp",
+    )
+
+
+@patch("docs_server.mcp_server.get_settings")
+def test_is_allowed_path_validates_security(
+    mock_get_settings: MagicMock, tmp_path: Path
+) -> None:
     """@brief Verify that only valid markdown files within authorized search paths are allowed.
+    @param mock_get_settings Mocked get_settings function.
     @param tmp_path Pytest temporary directory fixture.
     """
+    mock_get_settings.return_value = _make_settings(["/tmp/test_projects"])
     valid_file = Path("/tmp/test_projects/cheatsheet/test.md")
     assert is_allowed_path(valid_file) is True
 

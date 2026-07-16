@@ -10,6 +10,7 @@ from mkdocs.structure.files import File, Files
 from mkdocs.structure.nav import Navigation
 
 from docs_server import scanner
+from docs_server.config import get_settings
 
 
 def is_already_in_files(file_path: Path, files: Files) -> bool:
@@ -18,8 +19,9 @@ def is_already_in_files(file_path: Path, files: Files) -> bool:
     @param files Current MkDocs Files collection.
     @return True if already present, False otherwise.
     """
+    source_dir = get_settings().source_dir or ""
     try:
-        rel_str = str(file_path.relative_to(scanner.SOURCE_DIR))
+        rel_str = str(file_path.relative_to(source_dir))
     except ValueError:
         rel_str = file_path.name
 
@@ -37,14 +39,15 @@ def inject_virtual_file(file_path: Path, files: Files, config: Dict[str, Any]) -
     @param files Current MkDocs Files collection to append to.
     @param config MkDocs configuration dictionary containing site_dir and URL settings.
     """
+    source_dir = get_settings().source_dir or ""
     try:
-        rel_path = file_path.relative_to(scanner.SOURCE_DIR)
+        rel_path = file_path.relative_to(source_dir)
     except ValueError:
         rel_path = Path(file_path.name)
 
     virtual_file = File(
         path=str(rel_path),
-        src_dir=scanner.SOURCE_DIR,
+        src_dir=source_dir,
         dest_dir=config.get("site_dir", ""),
         use_directory_urls=config.get("use_directory_urls", True),
     )

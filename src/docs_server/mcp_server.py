@@ -1,10 +1,11 @@
 """@brief FastMCP server for discovering, reading, creating, and editing workspace markdown documentation."""
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from mcp.server.fastmcp import FastMCP
 
 from docs_server import scanner
+from docs_server.config import get_settings
 
 mcp = FastMCP("Workspace Documentation Portal")
 
@@ -31,8 +32,9 @@ def is_allowed_path(path_obj: Path) -> bool:
         return False
 
     abs_str = str(path_obj.resolve() if path_obj.exists() else path_obj)
+    allowed_roots = get_settings().allowed_roots
 
-    for root in scanner.ALLOWED_ROOTS:
+    for root in allowed_roots:
         if abs_str.startswith(root):
             return True
     return False

@@ -10,6 +10,8 @@ dependencies = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.0",
     "pymdown-extensions>=10.8",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
 ]
 
 [project.optional-dependencies]

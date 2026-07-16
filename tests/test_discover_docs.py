@@ -6,17 +6,30 @@ import pytest
 from mkdocs.structure.files import Files, File
 
 from docs_server.hooks.discover_docs import on_files
+from docs_server.config import ScannerConfig
 
 
-@patch("docs_server.hooks.discover_docs.scanner.SOURCE_DIR", "/test/workspace")
+def _make_settings(source_dir: str = "/test/workspace") -> ScannerConfig:
+    return ScannerConfig(
+        search_paths=[],
+        allowed_roots=[],
+        source_dir=source_dir,
+    )
+
+
+@patch("docs_server.hooks.discover_docs.get_settings")
 @patch("docs_server.hooks.discover_docs.scanner.get_documentation_files")
 def test_on_files_injects_virtual_files(
-    mock_get_files: MagicMock, tmp_path: Path
+    mock_get_files: MagicMock,
+    mock_get_settings: MagicMock,
+    tmp_path: Path,
 ) -> None:
     """@brief Verify that on_files discovers files via scanner and injects virtual File entries.
     @param mock_get_files Mocked get_documentation_files scanner function.
+    @param mock_get_settings Mocked get_settings function.
     @param tmp_path Pytest temporary directory fixture.
     """
+    mock_get_settings.return_value = _make_settings()
     mock_file_1 = Path("/test/workspace/project-a/docs/guide.md")
     mock_file_2 = Path("/test/workspace/project-b/README.md")
     mock_get_files.return_value = [mock_file_1, mock_file_2]
@@ -35,13 +48,19 @@ def test_on_files_injects_virtual_files(
     assert "project-b/README.md" in src_paths
 
 
-@patch("docs_server.hooks.discover_docs.scanner.SOURCE_DIR", "/test/workspace")
+@patch("docs_server.hooks.discover_docs.get_settings")
 @patch("docs_server.hooks.discover_docs.scanner.get_documentation_files")
-def test_on_files_avoids_duplicates(mock_get_files: MagicMock, tmp_path: Path) -> None:
+def test_on_files_avoids_duplicates(
+    mock_get_files: MagicMock,
+    mock_get_settings: MagicMock,
+    tmp_path: Path,
+) -> None:
     """@brief Verify that existing files are not duplicated by virtual injection.
     @param mock_get_files Mocked get_documentation_files scanner function.
+    @param mock_get_settings Mocked get_settings function.
     @param tmp_path Pytest temporary directory fixture.
     """
+    mock_get_settings.return_value = _make_settings()
     mock_file_1 = Path("/test/workspace/project-a/docs/guide.md")
     mock_get_files.return_value = [mock_file_1]
 

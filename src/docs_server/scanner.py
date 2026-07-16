@@ -2,8 +2,7 @@
 
 Scans configured search roots for markdown documentation files (`README.md`,
 `AGENTS.md`, `CHANGELOG.md`, guides, etc.), using exclusion rules modeled
-from `docs.sh` behavior. Search paths are loaded from `docs_server.toml`
-or the `DOCS_SERVER_SEARCH_PATHS` environment variable.
+from `docs.sh` behavior. Configuration is loaded via `docs_server.config`.
 """
 
 import os
@@ -11,10 +10,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib  # type: ignore[no-redef]
+from docs_server.config import get_settings
 
 EXCLUDE_DIRS: set[str] = {
     "node_modules",
@@ -41,90 +37,6 @@ EXCLUDE_FILES: set[str] = {
     "CLAUDE.md",
     "README",
 }
-
-ENV_VAR_NAME = "DOCS_SERVER_SEARCH_PATHS"
-
-
-def find_config_file() -> Optional[Path]:
-    """@brief Locate `docs_server.toml` by walking up from this file's directory.
-    @return Path to config file, or None if not found.
-    """
-    current = Path(__file__).resolve().parent
-    for _ in range(10):
-        candidate = current / "docs_server.toml"
-        if candidate.is_file():
-            return candidate
-        parent = current.parent
-        if parent == current:
-            break
-        current = parent
-    return None
-
-
-def load_toml_config() -> dict:
-    """@brief Load the full TOML config file.
-    @return Parsed config dictionary, or empty dict if file missing or invalid.
-    """
-    config_path = find_config_file()
-    if config_path is None:
-        return {}
-    try:
-        with open(config_path, "rb") as f:
-            return tomllib.load(f)
-    except Exception:
-        return {}
-
-
-_config_cache: Optional[dict] = None
-
-
-def get_config() -> dict:
-    """@brief Get cached TOML config, loading it on first access.
-    @return Parsed config dictionary.
-    """
-    global _config_cache  # noqa: PLW0603
-    if _config_cache is None:
-        _config_cache = load_toml_config()
-    return _config_cache
-
-
-def load_search_paths() -> List[str]:
-    """@brief Load search paths with priority: env var > TOML file > empty default.
-    @return List of directory path strings to scan for documentation.
-    """
-    raw = os.environ.get(ENV_VAR_NAME, "").strip()
-    if raw:
-        return [p.strip() for p in raw.split(":") if p.strip()]
-    return get_config().get("scanner", {}).get("search_paths", [])
-
-
-def load_allowed_roots() -> List[str]:
-    """@brief Load allowed roots from config, falling back to search_paths.
-    @return List of root directory path strings the server may read/write.
-    """
-    roots = get_config().get("scanner", {}).get("allowed_roots", [])
-    if roots:
-        return roots
-    return load_search_paths()
-
-
-SEARCH_PATHS: List[str] = load_search_paths()
-ALLOWED_ROOTS: List[str] = load_allowed_roots()
-
-
-def load_source_dir() -> str:
-    """@brief Load the MkDocs source directory from config, falling back to first search_path parent.
-    @return Absolute directory path string for MkDocs virtual file mounting.
-    """
-    explicit = get_config().get("scanner", {}).get("source_dir")
-    if explicit:
-        return explicit
-    if SEARCH_PATHS:
-        return str(Path(SEARCH_PATHS[0]).parent)
-    return str(Path.cwd())
-
-
-SOURCE_DIR: str = load_source_dir()
 
 
 def is_excluded_directory(dir_name: str) -> bool:
@@ -190,10 +102,12 @@ def process_search_path(search_path_str: str) -> List[Path]:
 
 def get_documentation_files(search_paths: Optional[List[str]] = None) -> List[Path]:
     """@brief Discover all documentation files across configured or provided roots.
-    @param search_paths Optional custom list of directory path strings; defaults to SEARCH_PATHS.
+    @param search_paths Optional custom list of directory path strings; defaults to config.
     @return Sorted list of unique discovered documentation Path objects.
     """
-    target_paths = search_paths if search_paths is not None else SEARCH_PATHS
+    target_paths = (
+        search_paths if search_paths is not None else get_settings().search_paths
+    )
     results: List[Path] = []
     for path_str in target_paths:
         results.extend(process_search_path(path_str))
